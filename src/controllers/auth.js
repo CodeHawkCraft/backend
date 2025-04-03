@@ -1,6 +1,18 @@
 const { asyncHandler,ApiError } = require("../utils");
 const bcrypt=require('bcrypt');
 const userModel=require('../model/user');
+const { default:arcjet, validateEmail } = require("@arcjet/node");
+
+const aj = arcjet({
+  key: process.env.ARCJET_KEY,
+  rules: [
+    validateEmail({
+      mode: "LIVE",
+      deny: ["DISPOSABLE", "INVALID", "NO_MX_RECORDS"],
+    }),
+  ],
+});
+
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   const user = await userModel.findOne({ email });
@@ -21,6 +33,14 @@ const login = asyncHandler(async (req, res) => {
 
 const signup=asyncHandler(async(req,res)=>{
   const {name,email,password}=req.body;
+  const decision = await aj.protect(req, {
+    email: req.body.email,
+  });
+  if (decision.isDenied()) {
+    console.log("email denied brother")
+    throw new ApiError(400, "Invalid email");
+  }
+
     const findUser=await userModel.findOne({email});
     if(findUser){
         throw new ApiError(400,"User already exists");
